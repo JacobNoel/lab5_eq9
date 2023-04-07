@@ -3,7 +3,7 @@ set -e
 
 # Sync executable
 bn=$(basename $1)
-rpiaddr="ADRESSE DE VOTRE RASPBERRY PI ICI"
+rpiaddr="10.248.17.72"
 
 rsync -az $1/build/emulateurClavier $1/createurRequetes/createurRequetes "pi@$rpiaddr:/home/pi/projects/laboratoire5/"
 # Execute GDB

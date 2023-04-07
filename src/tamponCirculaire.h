@@ -7,7 +7,7 @@
 #include <pthread.h>
 
 #include "utils.h"
-
+ 
 // Structure contenant l'information sur une requete a envoyer sur le bus USB
 struct requete{
     double tempsReception;  // Moment de la reception de la requete (lorsque le thread lecteur la lit sur le named pipe)
@@ -45,4 +45,4 @@ int consommerDonnee(struct requete *req);
 // Retourne la longueur courante de la file d'attente (le nombre de requetes en attente)
 unsigned int longueurFile();
 
-#endif
+#endif 

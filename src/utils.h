@@ -37,8 +37,8 @@ struct statistiques{
     unsigned int nombreRequetesTraitees;
     unsigned int nombreRequetesPerdues;
     double tempsTraitementMoyen;
-    double lambda;
-    double mu;
+    double lambda; //=taux moyen d'arrivée des évennements?
+    double mu; //=taux moyen de service des évennements?
     double rho;
 };
 

@@ -78,6 +78,8 @@ int main(int argc, char* argv[]){
     // argv[3] contient un entier valide (que vous pouvez convertir avec atoi()) contenant la taille voulue pour le tampon
     //      circulaire
 
+
+
     // Vous avez plusieurs taches d'initialisation a faire :
     //
     // 1) Ouvrir le named pipe
