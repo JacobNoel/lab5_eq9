@@ -1,68 +1,144 @@
 #include "emulateurClavier.h"
+#include "stdlib.h"
+#include "math.h"
 
 FILE* initClavier(){
     // Deja implementee pour vous
+    printf("init clavier\n");
     FILE* f = fopen(FICHIER_CLAVIER_VIRTUEL, "wb");
     setbuf(f, NULL);        // On desactive le buffering pour eviter tout delai
     return f;
 }
- 
+
+unsigned char asciiVersCodeClavier(char c) {
+    if (c==44) // ,
+        return 54;
+    else if (c==46) // .
+        return 55;
+    else if (c==32) // SPACE
+        return 44;
+    else if (c==13 || c==10) // ENTER
+        return 40;
+    else if (c==48) // chiffre 0
+        return 39;
+    else if ((c>=49) && (c<=57)) //chiffre 1-9
+        return c - 19;
+    else if (c>=97 && c<=122) //minuscule
+        return c - 93;
+    else if (c>=65 && c<=90) { //majuscule
+        return c - 61;
+    }
+    return 0;
+}
+
+void relacherTouches(FILE* periphClavier, unsigned char buffer[]) {
+    // Buffer pour stocker les 0 à envoyer sur le bus USB
+    memset(buffer, 0, LONGUEUR_USB_PAQUET);
+
+    fwrite(buffer, LONGUEUR_USB_PAQUET, 1, periphClavier);
+}
+
  
 int ecrireCaracteres(FILE* periphClavier, const char* caracteres, size_t len, unsigned int tempsTraitementParPaquetMicroSecondes){
-    //Variable pour suivre le nombre de caracteres écrits et buffer de donnees converties en USB-HID
-    size_t written = 0;
-    int data [8];
-    int zeros, r;
+    // Taille du buffer contenant les données à envoyer sur le bus USB
+    const size_t TAILLE_BUF = LONGUEUR_USB_PAQUET;
 
-    //Tant qu'on a pas tout envoyé au clavier on continu pour envoyer des paquets de 8 octets (--- 6 caracteres max?)
-    while (written < len) {
-        //On prepare les donnees
-        memset(data, 0, sizeof(data));
-        //(c>>5)&1 -> min
-        for (int i = 0; i<6; i++){ //On prend max 6 caracteres
-            //Tant que les caracteres sont de la meme casse ET qu'il y en a encore à écrire
-            while (((caracteres[written+i]>='a' && caracteres[written+i]<='z') == ((caracteres[written]>='a' && caracteres[written]<='z'))) &&  (written+i) < len){
-                //Conversion en USB-HID avec la table
-                if (caracteres[written+i]==44) // ,
-                    data[i+2] = 54;
-                else if (caracteres[written+i]==46) // .
-                    data[i+2] = 55;
-                else if (caracteres[written+i]==32) // SPACE
-                    data[i+2] = 44;
-                else if (caracteres[written+i]==13) // ENTER
-                    data[i+2] = 40;
-                else if (caracteres[written+i]==48) // chiffre 0
-                    data[i+2] = 39;
-                else if ((caracteres[written+i]>=49) && (caracteres[written+i]<=57))  { //chiffre 1-9
-                    data[i+2] = caracteres[written+i] - 19;
+    // Buffer pour stocker les données à envoyer sur le bus USB
+    unsigned char buffer[TAILLE_BUF];
+    buffer[0] = 0;
+    buffer[1] = 0;
+
+    // Indice dans le buffer pour les données à envoyer
+    size_t bufIndex = 2;
+
+    // On boucle sur chaque caractère
+    for (size_t i = 0; i < len; i++) {
+        if (buffer[0] != 2 && caracteres[i] >= 65 && caracteres[i] <= 90) {
+            // Si on a encore des données dans le buffer, on les envoie
+            if (bufIndex > 2) {
+                // On remplit le reste du buffer avec des 0
+                memset(buffer + bufIndex, 0, LONGUEUR_USB_PAQUET - bufIndex);
+
+                size_t result = fwrite(buffer, LONGUEUR_USB_PAQUET, 1, periphClavier);
+                if (result != 1) {
+                    perror("Erreur lors de l'envoi des donnees sur le bus USB");
+                    return -1;
                 }
-                else {
-                    if (caracteres[written+i]>='a' && caracteres[written+i]<='z') //minuscule
-                        data[i+2] = caracteres[written+i] - 93;
-                    else { //majuscule
-                        data[0] = 2;
-                        data[i+2] = caracteres[written+i] - 61;
-                    }
-                }
+                relacherTouches(periphClavier, buffer);
+
+                // On attend le temps de traitement par paquet
+                usleep(tempsTraitementParPaquetMicroSecondes);
             }
-        }
 
-        //On écrit les donnees
-        if  ((r = fwrite(data, LONGUEUR_USB_PAQUET, 1, periphClavier)) < 0){
-            printf("Failed to write data\n");
+            // On réinitialise l'indice dans le buffer
+            bufIndex = 2;
+            buffer[0] = 2;
+        }
+        else if (buffer[0] != 0 && (caracteres[i] < 65 || caracteres[i] > 90)) {
+            // Si on a encore des données dans le buffer, on les envoie
+            if (bufIndex > 2) {
+                // On remplit le reste du buffer avec des 0
+                memset(buffer + bufIndex, 0, LONGUEUR_USB_PAQUET - bufIndex);
+
+                size_t result = fwrite(buffer, LONGUEUR_USB_PAQUET, 1, periphClavier);
+                if (result != 1) {
+                    perror("Erreur lors de l'envoi des donnees sur le bus USB");
+                    return -1;
+                }
+                relacherTouches(periphClavier, buffer);
+
+                // On attend le temps de traitement par paquet
+                usleep(tempsTraitementParPaquetMicroSecondes);
+            }
+
+            // On réinitialise l'indice dans le buffer
+            bufIndex = 2;
+            buffer[0] = 0;
+        }
+        // On convertit le caractère ASCII en code clavier
+        unsigned char clavierCode = asciiVersCodeClavier(caracteres[i]);
+
+        // On vérifie que la conversion a réussi
+        if (clavierCode == 0) {
+            fprintf(stderr, "Erreur: caractere non supporte: %c\n", caracteres[i]);
             return -1;
         }
-        written += r;
 
-        //On a fini d'envoyer un paquet, on envoie des 0
-        memset(data, 0, sizeof(data));
-        if ((zeros = fwrite(data, LONGUEUR_USB_PAQUET, 1, periphClavier)) <=0){
-            printf("Failed to write 0\n");
-            return -1;
-        };
-        //On attend un peu...
-        usleep(tempsTraitementParPaquetMicroSecondes);  
+        // On ajoute le code clavier dans le buffer
+        buffer[bufIndex++] = clavierCode;
+
+        // Si on a rempli un paquet, on l'envoie
+        if (bufIndex >= LONGUEUR_USB_PAQUET) {
+            size_t result = fwrite(buffer, LONGUEUR_USB_PAQUET, 1, periphClavier);
+            if (result != 1) {
+                perror("Erreur lors de l'envoi des donnees sur le bus USB");
+                return -1;
+            }
+            relacherTouches(periphClavier, buffer);
+
+            // On attend le temps de traitement par paquet
+            usleep(tempsTraitementParPaquetMicroSecondes);
+
+            // On réinitialise l'indice dans le buffer
+            bufIndex = 2;
+        }
     }
 
-    return written;
+    // Si on a encore des données dans le buffer, on les envoie
+    if (bufIndex > 2) {
+        // On remplit le reste du buffer avec des 0
+        memset(buffer + bufIndex, 0, LONGUEUR_USB_PAQUET - bufIndex);
+
+        size_t result = fwrite(buffer, LONGUEUR_USB_PAQUET, 1, periphClavier);
+        if (result != 1) {
+            perror("Erreur lors de l'envoi des donnees sur le bus USB");
+            return -1;
+        }
+        relacherTouches(periphClavier, buffer);
+
+        // On attend le temps de traitement par paquet
+        usleep(tempsTraitementParPaquetMicroSecondes);
+    }
+
+    return len;
 }

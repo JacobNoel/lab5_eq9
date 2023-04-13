@@ -9,6 +9,7 @@
         "stdlib.h": "c",
         "fcntl.h": "c",
         "unistd.h": "c",
-        "utils.h": "c"
+        "utils.h": "c",
+        "pthreadtypes.h": "c"
     }
 }
