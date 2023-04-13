@@ -1,6 +1,4 @@
 #include "emulateurClavier.h"
-#include "stdlib.h"
-#include "math.h"
 
 FILE* initClavier(){
     // Deja implementee pour vous

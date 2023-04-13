@@ -1,5 +1,4 @@
 #include <pthread.h>
-#include <bits/pthreadtypes.h>
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
@@ -8,8 +7,6 @@
 #include "utils.h"
 #include "emulateurClavier.h"
 #include "tamponCirculaire.h"
-
-int tailleTampon;
 
 
 static void* threadFonctionClavier(void* args){
@@ -82,6 +79,7 @@ static void* threadFonctionLecture(void *args){
     // On est sûr de lire moins de 2048 octets (on espère)
     char buf[2048];
 
+            struct requete req;
     // Boucle principale du thread
     while(1){
         // Remplissage du set de descripteurs a surveiller pour le select()
@@ -102,7 +100,6 @@ static void* threadFonctionLecture(void *args){
         }
         if (*(buf + offset) == 0x4) {
             // Creation d'une nouvelle requete
-            struct requete req;
             req.taille = offset;
             req.data = malloc(offset);
             memcpy(req.data, buf, offset);
@@ -151,7 +148,7 @@ int main(int argc, char* argv[]){
 
     // Convertir les arguments en entiers
     int tempsAttente = atoi(argv[2]);
-    tailleTampon = atoi(argv[3]);
+    int tailleTampon = atoi(argv[3]);
     
     // TODO
     pthread_barrier_t barrier;
